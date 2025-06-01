@@ -1,8 +1,14 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import he from "he";
 import React, { useEffect, useState } from "react";
-import { ImageBackground, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  ImageBackground,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 interface AnswerReview {
   question: string;
@@ -11,19 +17,46 @@ interface AnswerReview {
   options: string[];
 }
 
+interface QuizData {
+  name: string;
+  score: number;
+  total: number;
+  userAnswers: AnswerReview[];
+}
+
 export default function Review() {
   const router = useRouter();
-  const [answers, setAnswers] = useState<AnswerReview[]>([]);
+  const { quizData: quizDataParam } = useLocalSearchParams<{
+    quizData: string;
+  }>();
+  const [quizData, setQuizData] = useState<QuizData | null>(null);
 
   useEffect(() => {
-    (async () => {
-      const storedAnswers = await AsyncStorage.getItem("userAnswers");
-      if (storedAnswers) {
-        setAnswers(JSON.parse(storedAnswers));
+    try {
+      if (quizDataParam) {
+        const parsedData = JSON.parse(quizDataParam);
+        setQuizData(parsedData);
       }
-    })();
-  }, []);
-return (
+    } catch (error) {
+      console.error("Error parsing quiz data:", error);
+    }
+  }, [quizDataParam]);
+
+  if (!quizData) {
+    return (
+      <View style={[styles.container, { justifyContent: "center" }]}>
+        <Text style={styles.title}>No review data available</Text>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => router.replace("/")}
+        >
+          <Text style={styles.buttonText}>Back to Home</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return (
     <ImageBackground
       source={{
         uri: "https://firebasestorage.googleapis.com/v0/b/coba-mart.appspot.com/o/background.jpg?alt=media&token=6116eee1-f85c-4c3c-b384-ce0303170415",
@@ -34,7 +67,8 @@ return (
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.innerBox}>
           <Text style={styles.title}>Review Your Answers</Text>
-          {answers.map((ans, index) => (
+          <Text style={styles.subtitle}>{quizData.name}'s Quiz Review</Text>
+          {quizData.userAnswers.map((ans, index) => (
             <View
               key={index}
               style={[
@@ -42,15 +76,16 @@ return (
                 ans.selected === ans.correct ? styles.correct : styles.wrong,
               ]}
             >
-              <Text style={styles.questionText}>{he.decode(ans.question)}</Text>
-              <Text style={styles.answerLabel}>
-                Your answer:{" "}
-                <Text style={styles.answerText}>
-                  {he.decode(ans.selected)}
-                </Text>
+              <Text style={styles.questionText}>
+                {index + 1}. {he.decode(ans.question)}
               </Text>
               <Text style={styles.answerLabel}>
-                Correct answer: {he.decode(ans.correct)}
+                Your answer:{" "}
+                <Text style={styles.answerText}>{he.decode(ans.selected)}</Text>
+              </Text>
+              <Text style={styles.answerLabel}>
+                Correct answer:{" "}
+                <Text style={styles.answerText}>{he.decode(ans.correct)}</Text>
               </Text>
             </View>
           ))}
@@ -75,7 +110,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 20,
-        backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: "rgba(0,0,0,0.4)",
 
     paddingVertical: 40,
   },
@@ -95,6 +130,12 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 20,
   },
+  subtitle: {
+    fontSize: 18,
+    color: "#fff",
+    marginBottom: 20,
+    textAlign: "center",
+  },
   questionBlock: {
     marginBottom: 20,
     padding: 15,
@@ -111,7 +152,7 @@ const styles = StyleSheet.create({
   },
   questionText: {
     fontSize: 18,
-    
+
     fontWeight: "bold",
     marginBottom: 8,
     color: "#fff",

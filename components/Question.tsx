@@ -1,7 +1,6 @@
 import he from "he";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  Dimensions,
   Platform,
   ScrollView,
   StyleSheet,
@@ -21,7 +20,9 @@ interface QuestionProps {
   userAnswers: any[];
   setUserAnswers: (answers: any[]) => void;
   onNext: () => void;
+  onSubmit: () => void;
   onQuit: () => void;
+  isLastQuestion: boolean;
 }
 
 const Question: React.FC<QuestionProps> = ({
@@ -35,11 +36,18 @@ const Question: React.FC<QuestionProps> = ({
   userAnswers,
   setUserAnswers,
   onNext,
+  onSubmit,
   onQuit,
+  isLastQuestion,
 }) => {
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState<string>("");
-  const windowWidth = Dimensions.get("window").width;
+
+  // Reset selected state when question changes
+  useEffect(() => {
+    setSelected(null);
+    setError("");
+  }, [currQues, questions]);
 
   const handleSelect = (option: string) => {
     if (selected) return;
@@ -78,9 +86,15 @@ const Question: React.FC<QuestionProps> = ({
       setError("Please select an option first");
       return;
     }
-    setSelected(null);
-    setError("");
     onNext();
+  };
+
+  const handleSubmitPress = () => {
+    if (!selected) {
+      setError("Please select an option first");
+      return;
+    }
+    onSubmit();
   };
 
   return (
@@ -131,14 +145,23 @@ const Question: React.FC<QuestionProps> = ({
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.controlButton, styles.nextButton]}
-            onPress={handleNextPress}
-          >
-            <Text style={styles.controlButtonText}>
-              {currQues === questions.length - 1 ? "Submit" : "Next Question"}
-            </Text>
-          </TouchableOpacity>
+          {isLastQuestion ? (
+            <TouchableOpacity
+              style={[styles.controlButton, styles.submitButton]}
+              onPress={handleSubmitPress}
+              disabled={!selected}
+            >
+              <Text style={styles.controlButtonText}>Submit Quiz</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.controlButton, styles.nextButton]}
+              onPress={handleNextPress}
+              disabled={!selected}
+            >
+              <Text style={styles.controlButtonText}>Next Question</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </ScrollView>
@@ -245,6 +268,10 @@ const styles = StyleSheet.create({
   },
   nextButton: {
     backgroundColor: "#1e90ff",
+    flex: Platform.OS === "web" ? 0 : 2,
+  },
+  submitButton: {
+    backgroundColor: "#4CAF50",
     flex: Platform.OS === "web" ? 0 : 2,
   },
   controlButtonText: {

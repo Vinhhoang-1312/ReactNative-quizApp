@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   Image,
@@ -20,6 +20,18 @@ export default function HomeScreen() {
   const [name, setName] = useState<string>("");
   const [error, setError] = useState<string>("");
 
+  // Reset quiz data when component mounts
+  useEffect(() => {
+    const resetQuizData = async () => {
+      try {
+        await AsyncStorage.clear();
+      } catch (e) {
+        console.error("Error clearing storage:", e);
+      }
+    };
+    resetQuizData();
+  }, []);
+
   const handleStart = async () => {
     if (!name.trim()) {
       setError("Please enter your name");
@@ -27,16 +39,13 @@ export default function HomeScreen() {
     }
     setError("");
     try {
+      // Clear any existing data
+      await AsyncStorage.clear();
+
       const questions: QuestionType[] = await fetchQuestions();
       if (!questions || questions.length === 0) {
         throw new Error("No questions received from the API");
       }
-
-      // Reset all storage
-      await AsyncStorage.setItem("score", "0");
-      await AsyncStorage.setItem("startTime", Date.now().toString());
-      await AsyncStorage.setItem("userAnswers", JSON.stringify([]));
-      await AsyncStorage.setItem("name", name);
 
       // Navigate to quiz with questions data
       router.push({

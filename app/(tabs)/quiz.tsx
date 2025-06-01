@@ -14,8 +14,9 @@ import { QuestionType } from "../../services/api";
 
 export default function Quiz() {
   const router = useRouter();
-  const { questions: questionsParam } = useLocalSearchParams<{
+  const { questions: questionsParam, name: userName } = useLocalSearchParams<{
     questions?: string;
+    name?: string;
   }>();
   const [questions, setQuestions] = useState<QuestionType[]>([]);
   const [currQues, setCurrQues] = useState(0);
@@ -24,6 +25,22 @@ export default function Quiz() {
   const [options, setOptions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isLastQuestion, setIsLastQuestion] = useState(false);
+
+  const resetQuiz = async () => {
+    try {
+      await AsyncStorage.clear();
+      setQuestions([]);
+      setCurrQues(0);
+      setScore(0);
+      setUserAnswers([]);
+      setOptions([]);
+      setIsLastQuestion(false);
+      setError(null);
+    } catch (e) {
+      console.error("Error resetting quiz:", e);
+    }
+  };
 
   useEffect(() => {
     const loadQuestions = async () => {
@@ -36,7 +53,8 @@ export default function Quiz() {
             setQuestions(parsed);
             setCurrQues(0);
             setScore(0);
-            setUserAnswers([]);
+            setUserAnswers(new Array(parsed.length).fill(null));
+            setOptions([]);
           } else {
             throw new Error("Invalid questions data");
           }
@@ -46,6 +64,7 @@ export default function Quiz() {
       } catch (e) {
         console.error("Failed to load questions:", e);
         setError("Failed to load questions. Please try again.");
+        await resetQuiz();
         router.replace("/");
       } finally {
         setIsLoading(false);
@@ -63,6 +82,7 @@ export default function Quiz() {
           ...questions[currQues].incorrect_answers,
         ])
       );
+      setIsLastQuestion(currQues === questions.length - 1);
     }
   }, [questions, currQues]);
 
@@ -70,15 +90,33 @@ export default function Quiz() {
     return [...options].sort(() => Math.random() - 0.5);
   };
 
-  const handleNext = async () => {
-    if (currQues === questions.length - 1) {
-      await AsyncStorage.setItem("score", score.toString());
-      await AsyncStorage.setItem("total", questions.length.toString());
-      await AsyncStorage.setItem("userAnswers", JSON.stringify(userAnswers));
-      router.replace("/result");
-    } else {
+  const handleNext = () => {
+    if (currQues < questions.length - 1) {
       setCurrQues(currQues + 1);
     }
+  };
+
+  const handleSubmit = () => {
+    if (!userAnswers[currQues]) {
+      return;
+    }
+    // Navigate to result with all the quiz data
+    router.replace({
+      pathname: "/result",
+      params: {
+        quizData: JSON.stringify({
+          name: userName,
+          score: score,
+          total: questions.length,
+          userAnswers: userAnswers.filter((answer) => answer !== null),
+        }),
+      },
+    });
+  };
+
+  const handleQuit = async () => {
+    await resetQuiz();
+    router.replace("/");
   };
 
   if (isLoading) {
@@ -129,10 +167,9 @@ export default function Quiz() {
                 userAnswers={userAnswers}
                 setUserAnswers={setUserAnswers}
                 onNext={handleNext}
-                onQuit={async () => {
-                  await AsyncStorage.clear();
-                  router.replace("/");
-                }}
+                onSubmit={handleSubmit}
+                onQuit={handleQuit}
+                isLastQuestion={isLastQuestion}
               />
             ) : (
               <View style={styles.loadingContainer}>

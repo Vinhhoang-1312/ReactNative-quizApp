@@ -1,5 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   Image,
@@ -11,31 +10,37 @@ import {
   View,
 } from "react-native";
 
+interface QuizData {
+  name: string;
+  score: number;
+  total: number;
+  userAnswers: any[];
+}
+
 export default function Result() {
   const router = useRouter();
-  const [score, setScore] = useState<number | null>(null);
-  const [total, setTotal] = useState<number | null>(null);
+  const { quizData: quizDataParam } = useLocalSearchParams<{
+    quizData: string;
+  }>();
+  const [quizData, setQuizData] = useState<QuizData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchScore = async () => {
-      try {
-        const scoreString = await AsyncStorage.getItem("score");
-        const totalString = await AsyncStorage.getItem("total");
-        setScore(scoreString ? parseInt(scoreString, 10) : 0);
-        setTotal(totalString ? parseInt(totalString, 10) : 0);
-      } catch (error) {
-        console.error("Error loading score from AsyncStorage", error);
-      } finally {
-        setLoading(false);
+    try {
+      if (quizDataParam) {
+        const parsedData = JSON.parse(quizDataParam);
+        setQuizData(parsedData);
       }
-    };
-    fetchScore();
-  }, []);
+    } catch (error) {
+      console.error("Error parsing quiz data:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [quizDataParam]);
 
   const getResultImage = () => {
-    if (score !== null && total !== null) {
-      return score >= 2
+    if (quizData) {
+      return quizData.score >= quizData.total / 2
         ? "https://cdn-icons-png.flaticon.com/512/2278/2278992.png"
         : "https://firebasestorage.googleapis.com/v0/b/coba-mart.appspot.com/o/wrong-3d.png?alt=media&token=9b90c61d-9918-4bd5-b554-3a2624cb527a";
     }
@@ -49,6 +54,21 @@ export default function Result() {
       </View>
     );
   }
+
+  if (!quizData) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.score}>No quiz data available</Text>
+        <TouchableOpacity
+          style={[styles.button, styles.homeButton]}
+          onPress={() => router.replace("/")}
+        >
+          <Text style={styles.buttonText}>Go Home</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <ImageBackground
       source={{
@@ -60,13 +80,19 @@ export default function Result() {
       <View style={styles.container}>
         <View style={styles.innerBox}>
           <Image source={{ uri: getResultImage() }} style={styles.image} />
+          <Text style={styles.welcomeText}>Great job, {quizData.name}!</Text>
           <Text style={styles.title}>Quiz Completed!</Text>
           <Text style={styles.score}>
-            Your score: {score} / {total}
+            Your score: {quizData.score} / {quizData.total}
           </Text>
           <TouchableOpacity
             style={styles.button}
-            onPress={() => router.push("/review")}
+            onPress={() =>
+              router.push({
+                pathname: "/review",
+                params: { quizData: quizDataParam },
+              })
+            }
           >
             <Text style={styles.buttonText}>Review Answers</Text>
           </TouchableOpacity>
@@ -146,5 +172,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#fff",
+  },
+  welcomeText: {
+    fontSize: 20,
+    color: "#fff",
+    marginBottom: 10,
+    textAlign: "center",
   },
 });
